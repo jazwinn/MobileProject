@@ -1,0 +1,331 @@
+# Android Fitness Tracker App - Comprehensive Project Specification
+
+## Project Overview
+Create a native Android fitness tracking application using Jetpack Compose and Kotlin that combines step counting with AI-powered exercise form detection using OpenCV. The app should provide comprehensive fitness tracking with data persistence, visualizations, and social sharing capabilities.
+
+---
+
+## Core Features & Requirements
+
+### 1. Step Tracking System
+
+**Functionality:**
+- Real-time step counting using Android's sensor framework (accelerometer/step detector)
+- Background step tracking service that persists across app restarts
+- Daily step goal setting and tracking
+- Additional metrics calculation:
+  - Distance covered (based on average stride length)
+  - Estimated calories burned (based on user profile: weight, height, age)
+  - Active time tracking (periods of continuous movement)
+- Local notifications for goal achievements and progress milestones
+- Settings toggle to enable/disable background tracking
+
+**Data Requirements:**
+- Hourly step count aggregation for granular tracking
+- Daily summary statistics
+- User profile data (for calorie/distance calculations)
+- Step goal configuration (default and custom)
+
+### 2. Exercise Detection System (OpenCV)
+
+**Real-time Detection:**
+- OpenCV-based pose estimation for push-ups and sit-ups
+- Live camera feed processing with overlay indicators
+- Automatic rep counting with form validation
+- Dual camera support (front/back camera selection)
+
+**Audio/Visual Feedback:**
+- Sound effect for completed valid rep
+- Visual indicators on screen:
+  - Body keypoint overlays showing detected pose
+  - Rep counter display
+  - Form correctness indicator (green for good form, red/yellow for poor form)
+  - Real-time guidance text (e.g., "Go lower", "Back straight")
+- Audio cues for exercise start/stop
+
+**Exercise Session:**
+- Session timer
+- Real-time rep counter
+- Pause/resume functionality
+- Session summary upon completion
+
+### 3. Data Persistence (Room Database)
+
+**Database Schema:**
+
+**Steps Table:**
+- Date/timestamp
+- Step count (hourly and daily totals)
+- Distance
+- Calories burned
+- Active time duration
+- Goal status (achieved/not achieved)
+
+**Workout Table:**
+- Workout ID
+- Date/timestamp
+- Exercise type (push-up/sit-up)
+- Total reps
+- Session duration
+- Average form score (if tracking quality)
+- Notes/comments
+
+**User Profile Table:**
+- Height
+- Weight
+- Age
+- Gender
+- Daily step goal
+- Stride length (calculated or custom)
+
+**Settings Table:**
+- Background tracking enabled/disabled
+- Preferred camera (front/back)
+- Notification preferences
+- Audio feedback enabled/disabled
+- Unit preferences (metric/imperial)
+
+### 4. Data Visualization & History
+
+**Historical View:**
+- Minimum 6 months of data retention
+- Interactive charts/graphs using a charting library (e.g., MPAndroidChart or Vico):
+  - Daily step trends (line/bar chart)
+  - Weekly/monthly aggregations
+  - Calories burned over time
+  - Workout frequency and progression
+- Filterable views:
+  - Day, Week, Month, 3 Months, 6 Months views
+  - Exercise type filtering
+- Statistical summaries:
+  - Average daily steps
+  - Total distance covered
+  - Workout streaks
+  - Personal bests
+
+### 5. Social Sharing
+
+**Share Functionality:**
+- Generate shareable image cards with:
+  - Daily/weekly statistics
+  - Achievement badges
+  - Workout summaries
+  - Progress graphs
+- Direct sharing to:
+  - WhatsApp, Instagram, Facebook, Twitter/X
+  - Generic share intent for other apps
+- Copy stats to clipboard option
+
+---
+
+## User Interface Design (Jetpack Compose)
+
+### Navigation Structure
+**Bottom Navigation Bar with 4 tabs:**
+1. **Home/Dashboard** - Today's overview
+2. **Exercise** - Camera-based workout mode
+3. **History** - Stats and historical data
+4. **Profile/Settings** - User configuration
+
+### Screen Specifications
+
+**1. Home/Dashboard Screen:**
+- Circular progress indicator showing today's step goal
+- Quick stats cards:
+  - Steps today
+  - Distance
+  - Calories burned
+  - Active time
+- Recent workout summary (last 3 exercises)
+- Motivational messages based on progress
+- Quick action button to start exercise
+
+**2. Exercise Screen:**
+- Camera viewfinder (full screen or large preview)
+- Exercise type selector (Push-ups / Sit-ups)
+- Camera flip button (front/back toggle)
+- Start/Stop exercise button
+- Real-time overlays:
+  - Skeletal pose visualization
+  - Rep counter (large, visible)
+  - Form feedback indicator
+- Settings icon for exercise-specific configurations
+
+**3. History Screen:**
+- Tabbed interface:
+  - Steps History
+  - Workout History
+- Date range selector
+- Interactive charts
+- Scrollable list of daily entries
+- Share button (FAB or top bar)
+- Export data option
+
+**4. Profile/Settings Screen:**
+- User profile section:
+  - Personal info (height, weight, age)
+  - Edit profile button
+- App settings:
+  - Daily step goal configuration
+  - Background tracking toggle
+  - Notification preferences
+  - Camera preferences
+  - Audio feedback toggle
+  - Unit system (metric/imperial)
+  - Data management (clear history, export)
+- About section
+
+### Design Principles
+- Material Design 3 guidelines
+- Clean, minimalist interface
+- Large, readable fonts
+- High contrast for accessibility
+- Smooth animations and transitions
+- Support for dark/light themes
+- Responsive layouts for different screen sizes
+
+---
+
+## Technical Architecture
+
+### Technology Stack
+- **Language:** Kotlin
+- **UI Framework:** Jetpack Compose
+- **Database:** Room (SQLite)
+- **Computer Vision:** OpenCV for Android
+- **Architecture Pattern:** MVVM (Model-View-ViewModel)
+- **Dependency Injection:** Hilt/Koin
+- **Coroutines:** For asynchronous operations
+- **Flow/LiveData:** For reactive data streams
+
+### Key Components
+
+**1. Services:**
+- Foreground Service for background step counting
+- WorkManager for periodic data syncing/cleanup
+
+**2. Sensors:**
+- Step Detector/Counter sensor access
+- Camera2 API or CameraX for camera access
+
+**3. Permissions Required:**
+- `ACTIVITY_RECOGNITION` - for step counting
+- `CAMERA` - for exercise detection
+- `POST_NOTIFICATIONS` - for goal notifications (Android 13+)
+- `FOREGROUND_SERVICE` - for background tracking
+- `WRITE_EXTERNAL_STORAGE` (if needed for older Android versions)
+
+**4. Libraries/Dependencies:**
+- OpenCV Android SDK
+- Charting library (MPAndroidChart/Vico)
+- CameraX or Camera2
+- Room database
+- WorkManager
+- Coil/Glide for image handling (if needed)
+
+### OpenCV Integration Details
+- Pose estimation algorithm selection:
+  - Option 1: Custom OpenCV-based pose detection using contours and geometric analysis
+  - Option 2: Integration with MediaPipe Pose or TensorFlow Lite pose estimation models
+- Real-time frame processing pipeline:
+  - Camera frame capture
+  - Preprocessing (resize, color conversion)
+  - Pose detection
+  - Rep counting logic (state machine based on joint angles)
+  - Form validation (angle thresholds for proper form)
+- Performance optimization:
+  - Frame rate throttling (process every nth frame)
+  - Background thread processing
+  - GPU acceleration if available
+
+---
+
+## Exercise Detection Logic
+
+### Push-up Detection:
+**Key Points to Track:**
+- Shoulders, elbows, hips, knees
+- Rep counted when:
+  - Elbow angle goes from ~180° (up) to <90° (down) and back
+  - Body maintains straight line (plank position)
+- Form validation:
+  - Check hip alignment
+  - Elbow angle depth
+  - Back straightness
+
+### Sit-up Detection:
+**Key Points to Track:**
+- Head, shoulders, hips, knees
+- Rep counted when:
+  - Torso angle relative to ground goes from ~0° (lying) to >45° (sitting up) and back
+- Form validation:
+  - Knee bend consistency
+  - Full range of motion
+  - Controlled movement speed
+
+---
+
+## Data Flow & User Journey
+
+### First-Time User:
+1. Onboarding screens explaining features
+2. Request necessary permissions (activity recognition, camera)
+3. User profile setup (height, weight, age, goal)
+4. Enable/disable background tracking preference
+5. Brief tutorial for camera exercise feature
+
+### Daily Usage:
+1. Open app → View today's progress on dashboard
+2. Automatic step counting in background (if enabled)
+3. User initiates workout session → Camera opens
+4. Select exercise type → Real-time detection begins
+5. Complete workout → Save to database → Show summary
+6. View history → Analyze trends → Share achievements
+
+### Background Behavior:
+- Step counting service runs continuously (if enabled)
+- Periodic database updates (every hour or significant step count change)
+- Battery optimization considerations
+- Proper service lifecycle management
+
+---
+
+## Additional Considerations
+
+### Performance:
+- Efficient database queries with indexing
+- Lazy loading for history lists
+- Image/bitmap recycling for camera frames
+- Memory management for long-running services
+
+### Error Handling:
+- Graceful degradation if sensors unavailable
+- Camera permission denied fallback
+- Database migration strategies
+- Network-independent operation (fully offline capable)
+
+### Future Extensibility:
+- Modular architecture to add more exercises
+- Cloud sync capability preparation
+- Multi-user profile support
+- Integration with wearables (optional)
+- Gamification elements (badges, achievements)
+
+### Testing Requirements:
+- Unit tests for business logic (calorie calculation, rep counting algorithm)
+- UI tests for navigation flows
+- Integration tests for database operations
+- Camera/sensor mocking for testing detection logic
+
+---
+
+## Success Criteria
+- Step counting accuracy within 5% of device pedometer
+- Exercise detection with >90% rep counting accuracy
+- Smooth 60 FPS UI performance
+- No ANR (Application Not Responding) errors
+- Battery consumption <5% per hour with background tracking
+- Database queries completing in <100ms
+- Camera processing latency <200ms per frame
+
+This comprehensive specification should provide any AI agent or development team with all necessary context to build the application successfully.
