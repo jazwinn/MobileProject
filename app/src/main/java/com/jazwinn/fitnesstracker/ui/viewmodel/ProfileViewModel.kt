@@ -21,7 +21,7 @@ class ProfileViewModel @Inject constructor(
     val userProfile: StateFlow<UserProfileEntity?> = userProfileDao.getUserProfile()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun updateProfile(name: String, height: Float, weight: Float, age: Int, stepGoal: Int) {
+    fun updateProfile(name: String, height: Float, weight: Float, age: Int, stepGoal: Int, profilePictureUri: String?) {
         viewModelScope.launch {
             userProfileDao.insertOrUpdateProfile(
                 UserProfileEntity(
@@ -30,7 +30,8 @@ class ProfileViewModel @Inject constructor(
                     heightCm = height,
                     weightKg = weight,
                     age = age,
-                    dailyStepGoal = stepGoal
+                    dailyStepGoal = stepGoal,
+                    profilePictureUri = profilePictureUri
                 )
             )
         }

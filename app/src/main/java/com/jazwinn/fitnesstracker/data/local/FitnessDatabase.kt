@@ -9,7 +9,7 @@ import com.jazwinn.fitnesstracker.data.local.entity.DailyStepsEntity
 import com.jazwinn.fitnesstracker.data.local.entity.UserProfileEntity
 import com.jazwinn.fitnesstracker.data.local.entity.WorkoutEntity
 
-@Database(entities = [DailyStepsEntity::class, WorkoutEntity::class, UserProfileEntity::class], version = 3, exportSchema = false)
+@Database(entities = [DailyStepsEntity::class, WorkoutEntity::class, UserProfileEntity::class], version = 4, exportSchema = false)
 abstract class FitnessDatabase : RoomDatabase() {
     abstract fun stepsDao(): StepsDao
     abstract fun workoutDao(): WorkoutDao

@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.accompanist.permissions)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.coil.compose)
     
     // Icons
     implementation(libs.androidx.material.icons.extended)

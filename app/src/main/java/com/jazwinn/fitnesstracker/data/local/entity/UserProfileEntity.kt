@@ -10,5 +10,6 @@ data class UserProfileEntity(
     val heightCm: Float = 170f,
     val weightKg: Float = 70f,
     val age: Int = 25,
-    val dailyStepGoal: Int = 10000
+    val dailyStepGoal: Int = 10000,
+    val profilePictureUri: String? = null
 )
