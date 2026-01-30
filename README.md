@@ -6,8 +6,9 @@ A modern, offline-first Android application for tracking daily steps, logging wo
 
 *   **Step Tracking**: Background step counting using real-time hardware sensors (accelerometer/step detector).
 *   **Exercise Analysis**: AI-powered push-up and sit-up detection using **ML Kit (Pose Detection)** and **CameraX**. Calculates repetitions and provides feedback.
-*   **Activity History**: Visualize your progress with weekly, monthly, and yearly charts.
-*   **Profile & Settings**: Custom goals, dark/light theme support, and data management.
+*   **Interactive Calendar History**: Browse your fitness history with an interactive calendar grid. Select any date to view detailed stats (steps, calories, workouts) for that specific day.
+*   **Profile Management**: View/Edit modes for clean data presentation. Upload custom profile pictures from your device gallery.
+*   **Settings & Preferences**: Functional dark/light theme toggle, notification preferences, and measurement unit selection - all persisted locally.
 *   **Social Sharing**: Share your workout achievements with custom-generated milestone cards.
 
 ## 🏗️ System Architecture
@@ -21,7 +22,8 @@ The application follows strictly typed **Clean Architecture** principles with **
 *   **Database**: Room (SQLite) with DataStore for preferences
 *   **Async**: Coroutines & Flows
 *   **Computer Vision**: Google ML Kit (Pose Detection) & CameraX
-*   **Charting**: Vico
+*   **Image Loading**: Coil for efficient image loading and caching
+*   **UI Components**: Custom Calendar Grid, Interactive Date Selection
 
 ### High-Level Overview
 
@@ -77,10 +79,25 @@ graph TD
 *   Place the phone on the ground/stand so your full body is visible.
 *   Perform the exercise; the app counts valid reps automatically.
 
-### 3. Profile & Settings
-*   Tap the **Profile** tab to edit your height, weight, and goals.
-*   Click the **Gear Icon** (top-right) to access Settings.
-*   Toggle **Dark Mode**, change units, or export your data.
+### 3. History & Calendar
+*   Navigate to the **History** tab.
+*   Browse months using the arrow buttons.
+*   **Tap any date** on the calendar grid to select it (highlighted with color).
+*   View detailed stats below: steps, calories, distance, and workouts for that day.
+
+### 4. Profile Management
+*   Tap the **Profile** tab to view your information.
+*   Click **"Edit Profile"** to enter Edit Mode.
+*   **Upload Profile Picture**: In Edit Mode, tap the avatar circle to select a photo from your gallery.
+*   Modify your height, weight, age, and daily step goal.
+*   Click **"Save"** to persist changes or **"Cancel"** to discard.
+
+### 5. Settings
+*   From the Profile screen, click the **Gear Icon** (top-right).
+*   Toggle **Dark Mode** (changes apply immediately across the app).
+*   Enable/disable **Notifications**.
+*   Switch between **Metric** and **Imperial** units.
+*   Use **"Reset All Data"** to clear your fitness history (requires confirmation).
 
 ## ⚠️ Troubleshooting
 
