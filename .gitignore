@@ -13,3 +13,21 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Log files
+*.log
+build_output*.txt
+*_log_*.txt
+
+# Python temporary files
+*.py[cod]
+__pycache__/
+diagnose.py
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
