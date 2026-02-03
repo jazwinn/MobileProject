@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.jazwinn.fitnesstracker"
-    compileSdk = 36 // Assuming preview API or latest stable
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.jazwinn.fitnesstracker"
@@ -84,9 +84,12 @@ dependencies {
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
     
-    // ML Kit
+    // ML Kit (keeping temporarily)
     implementation(libs.google.mlkit.pose.detection)
     implementation(libs.google.mlkit.pose.detection.accurate)
+    
+    // MediaPipe Pose Landmarker
+    implementation(libs.mediapipe.tasks.vision)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)

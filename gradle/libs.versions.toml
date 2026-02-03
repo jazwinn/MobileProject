@@ -13,16 +13,15 @@ ksp = "2.0.0-1.0.21"
 room = "2.6.1"
 camerax = "1.4.0"
 navigationCompose = "2.8.4"
-vico = "2.0.0-alpha.26" # Using Vico 2.0 (latest stable-ish alpha) or 1.x. Let's stick to 2.0 as it's better for M3
+vico = "2.0.0-alpha.26"
 workRuntimeKtx = "2.10.0"
 materialIconsExtended = "1.7.5"
 datastore = "1.1.1"
-
-# ML Kit
 mlkit-pose-detection = "18.0.0-beta3"
 mockito = "5.10.0"
 accompanistPermissions = "0.36.0"
 coil = "2.6.0"
+mediapipe = "0.10.14"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -46,9 +45,12 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconsExtended" }
 
-# ML Kit
+# ML Kit (keeping temporarily)
 google-mlkit-pose-detection = { group = "com.google.mlkit", name = "pose-detection", version.ref = "mlkit-pose-detection" }
 google-mlkit-pose-detection-accurate = { group = "com.google.mlkit", name = "pose-detection-accurate", version.ref = "mlkit-pose-detection" }
+
+# MediaPipe
+mediapipe-tasks-vision = { group = "com.google.mediapipe", name = "tasks-vision", version.ref = "mediapipe" }
 
 # Hilt
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }

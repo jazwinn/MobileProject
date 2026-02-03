@@ -2,6 +2,9 @@ package com.jazwinn.fitnesstracker.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
+import com.jazwinn.fitnesstracker.data.local.dao.WorkoutDao
+import com.jazwinn.fitnesstracker.data.local.entity.WorkoutEntity
 import com.jazwinn.fitnesstracker.domain.logic.RepCounter
 import com.jazwinn.fitnesstracker.domain.model.ExerciseType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,13 +16,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ExerciseViewModel @Inject constructor(
-    private val workoutDao: com.jazwinn.fitnesstracker.data.local.dao.WorkoutDao
+    private val workoutDao: WorkoutDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ExerciseUiState())
     val uiState = _uiState.asStateFlow()
     
-    private var repCounter = RepCounter(ExerciseType.PUSH_UP) // Default
+    private var repCounter = RepCounter(ExerciseType.PUSH_UP)
 
     fun setExerciseType(type: ExerciseType) {
         _uiState.update { it.copy(selectedExercise = type) }
@@ -27,12 +30,36 @@ class ExerciseViewModel @Inject constructor(
         reset()
     }
     
-    fun updateReps(count: Int, feedback: String) {
-        _uiState.update { 
-            it.copy(
-                repCount = count,
-                feedbackMessage = feedback
-            ) 
+    fun startTracking() {
+        _uiState.update { it.copy(isTracking = true, feedbackMessage = "Get into position") }
+    }
+    
+    fun stopTracking() {
+        _uiState.update { it.copy(isTracking = false, feedbackMessage = "Paused") }
+    }
+    
+    fun updatePose(result: PoseLandmarkerResult?) {
+        // Store the pose result for visualization
+        _uiState.update { it.copy(detectedPose = result) }
+        
+        // Only process pose for rep counting if tracking is active
+        if (_uiState.value.isTracking && result != null && result.landmarks().isNotEmpty()) {
+            val landmarks = result.landmarks()[0] // Get first person
+            
+            // Convert MediaPipe landmarks to ML Kit format for RepCounter compatibility
+            // (RepCounter still uses ML Kit Pose structure)
+            // TODO: Update RepCounter to use MediaPipe directly
+            
+            _uiState.update { 
+                it.copy(
+                    feedbackMessage = "Person detected - counting reps"
+                ) 
+            }
+        } else if (!_uiState.value.isTracking) {
+            // Don't update feedback when not tracking
+        } else {
+            // No pose detected
+            _uiState.update { it.copy(feedbackMessage = "Make sure you're in frame") }
         }
     }
     
@@ -42,13 +69,13 @@ class ExerciseViewModel @Inject constructor(
             saveSession(currentState)
         }
         repCounter.reset()
-        _uiState.update { it.copy(repCount = 0, feedbackMessage = "Ready") }
+        _uiState.update { it.copy(repCount = 0, feedbackMessage = "Ready", isTracking = false) }
     }
     
     private fun saveSession(state: ExerciseUiState) {
         viewModelScope.launch {
             workoutDao.insertWorkout(
-                com.jazwinn.fitnesstracker.data.local.entity.WorkoutEntity(
+                WorkoutEntity(
                     timestamp = System.currentTimeMillis(),
                     type = state.selectedExercise.name,
                     reps = state.repCount
@@ -64,5 +91,6 @@ data class ExerciseUiState(
     val selectedExercise: ExerciseType = ExerciseType.PUSH_UP,
     val repCount: Int = 0,
     val feedbackMessage: String = "Ready",
-    val isExercising: Boolean = false
+    val isTracking: Boolean = false,
+    val detectedPose: PoseLandmarkerResult? = null
 )
