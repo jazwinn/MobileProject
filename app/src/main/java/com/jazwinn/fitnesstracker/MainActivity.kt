@@ -25,7 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.jazwinn.fitnesstracker.ui.navigation.Screen
 import com.jazwinn.fitnesstracker.ui.screens.ExerciseScreen
-import com.jazwinn.fitnesstracker.ui.screens.HistoryScreen
+import com.jazwinn.fitnesstracker.ui.screens.HistoryScreen as HistoryScreenComposable
 import com.jazwinn.fitnesstracker.ui.screens.HomeScreen
 import com.jazwinn.fitnesstracker.ui.screens.ProfileScreen
 import com.jazwinn.fitnesstracker.ui.screens.SettingsScreen
@@ -55,7 +55,8 @@ fun MainScreen() {
     val navController = rememberNavController()
     val items = listOf(
         Screen.Home,
-        Screen.Exercise,
+        Screen.ExerciseMenu,
+        Screen.Stats,
         Screen.History,
         Screen.Profile
     )
@@ -89,10 +90,34 @@ fun MainScreen() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
-            composable(Screen.Exercise.route) { ExerciseScreen() }
-            composable(Screen.History.route) { HistoryScreen() }
-            composable(Screen.Profile.route) { ProfileScreen(navController) }
+            composable(Screen.Home.route) { HomeScreen(navController) }
+            composable(Screen.ExerciseMenu.route) { com.jazwinn.fitnesstracker.ui.screens.ExerciseMenuScreen(navController) }
+            composable(Screen.Stats.route) { com.jazwinn.fitnesstracker.ui.screens.StatsScreen() }
+            composable(Screen.History.route) { HistoryScreenComposable() }
+            composable(Screen.Profile.route) { com.jazwinn.fitnesstracker.ui.screens.ProfileScreen() }
+            
+            composable(Screen.ExerciseSession.route) { backStackEntry -> 
+                val type = backStackEntry.arguments?.getString("type")
+                ExerciseScreen(
+                    exerciseType = type,
+                    onClose = { navController.popBackStack() },
+                    onNavigateHome = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                ) 
+            }
+            
+            composable(Screen.Running.route) { 
+                com.jazwinn.fitnesstracker.ui.screens.RunningScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                ) 
+            }
             composable(Screen.Settings.route) { SettingsScreen(navController) }
         }
     }

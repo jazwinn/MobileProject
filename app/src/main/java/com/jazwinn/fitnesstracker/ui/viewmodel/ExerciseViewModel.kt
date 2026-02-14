@@ -2,11 +2,11 @@ package com.jazwinn.fitnesstracker.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import com.jazwinn.fitnesstracker.data.local.dao.WorkoutDao
 import com.jazwinn.fitnesstracker.data.local.entity.WorkoutEntity
 import com.jazwinn.fitnesstracker.domain.logic.RepCounter
 import com.jazwinn.fitnesstracker.domain.model.ExerciseType
+import com.jazwinn.fitnesstracker.ui.camera.PoseDetectionResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,11 +23,18 @@ class ExerciseViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
     
     private var repCounter = RepCounter(ExerciseType.PUSH_UP)
+    
+    // Tone generator for audio feedback
+    private val toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
 
     fun setExerciseType(type: ExerciseType) {
         _uiState.update { it.copy(selectedExercise = type) }
         repCounter = RepCounter(type)
         reset()
+    }
+    
+    fun toggleOverlay() {
+        _uiState.update { it.copy(showOverlay = !it.showOverlay) }
     }
     
     fun startTracking() {
@@ -38,21 +45,37 @@ class ExerciseViewModel @Inject constructor(
         _uiState.update { it.copy(isTracking = false, feedbackMessage = "Paused") }
     }
     
-    fun updatePose(result: PoseLandmarkerResult?) {
-        // Store the pose result for visualization
-        _uiState.update { it.copy(detectedPose = result) }
+    /**
+     * Process YOLOv8 pose detection results.
+     * Updates the overlay visualization and, when tracking, feeds keypoints to the RepCounter.
+     */
+    fun updatePose(results: List<PoseDetectionResult>) {
+        // Store results for skeleton overlay visualization
+        _uiState.update { it.copy(detectedPoses = results) }
         
-        // Only process pose for rep counting if tracking is active
-        if (_uiState.value.isTracking && result != null && result.landmarks().isNotEmpty()) {
-            val landmarks = result.landmarks()[0] // Get first person
+        // Only process for rep counting if tracking is active
+        if (_uiState.value.isTracking && results.isNotEmpty()) {
+            // Use the first (highest confidence) detected person
+            val bestPose = results[0]
             
-            // Convert MediaPipe landmarks to ML Kit format for RepCounter compatibility
-            // (RepCounter still uses ML Kit Pose structure)
-            // TODO: Update RepCounter to use MediaPipe directly
+            // Feed keypoints into RepCounter for angle-based rep counting
+            val previousReps = repCounter.repCount
+            repCounter.processKeypoints(bestPose.keypoints)
+            val currentReps = repCounter.repCount
+            
+            // Play beep if rep count increased
+            if (currentReps > previousReps) {
+                try {
+                    toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP)
+                } catch (e: Exception) {
+                    // Ignore tone errors
+                }
+            }
             
             _uiState.update { 
                 it.copy(
-                    feedbackMessage = "Person detected - counting reps"
+                    repCount = repCounter.repCount,
+                    feedbackMessage = repCounter.feedback
                 ) 
             }
         } else if (!_uiState.value.isTracking) {
@@ -71,6 +94,11 @@ class ExerciseViewModel @Inject constructor(
         repCounter.reset()
         _uiState.update { it.copy(repCount = 0, feedbackMessage = "Ready", isTracking = false) }
     }
+
+    fun restartWithoutSaving() {
+        repCounter.reset()
+        _uiState.update { it.copy(repCount = 0, feedbackMessage = "Ready", isTracking = false) }
+    }
     
     private fun saveSession(state: ExerciseUiState) {
         viewModelScope.launch {
@@ -84,6 +112,11 @@ class ExerciseViewModel @Inject constructor(
         }
     }
     
+    override fun onCleared() {
+        super.onCleared()
+        toneGenerator.release()
+    }
+    
     fun getRepCounter(): RepCounter = repCounter
 }
 
@@ -92,5 +125,6 @@ data class ExerciseUiState(
     val repCount: Int = 0,
     val feedbackMessage: String = "Ready",
     val isTracking: Boolean = false,
-    val detectedPose: PoseLandmarkerResult? = null
+    val showOverlay: Boolean = true, // Default to true
+    val detectedPoses: List<PoseDetectionResult> = emptyList()
 )

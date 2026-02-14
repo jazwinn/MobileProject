@@ -1,9 +1,18 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.devtools.ksp)
+}
+
+// Load API keys from local.properties
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
 }
 
 android {
@@ -18,6 +27,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
     }
 
     buildTypes {
@@ -38,6 +49,13 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 }
 
@@ -83,13 +101,14 @@ dependencies {
 
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
+
+    // Google Maps & Location
+    implementation(libs.play.services.maps)
+    implementation(libs.play.services.location)
+    implementation(libs.maps.compose)
     
-    // ML Kit (keeping temporarily)
-    implementation(libs.google.mlkit.pose.detection)
-    implementation(libs.google.mlkit.pose.detection.accurate)
-    
-    // MediaPipe Pose Landmarker
-    implementation(libs.mediapipe.tasks.vision)
+    // ONNX Runtime for YOLOv8 pose estimation
+    implementation(libs.onnxruntime.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)

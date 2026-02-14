@@ -8,7 +8,9 @@ data class WorkoutEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val timestamp: Long,
-    val type: String, // PUSH_UP, SIT_UP
-    val reps: Int,
-    val durationSeconds: Long = 0 // Optional
+    val type: String, // PUSH_UP, SIT_UP, OUTDOOR_RUN
+    val reps: Int = 0,
+    val durationSeconds: Long = 0,
+    val distanceKm: Float? = null,
+    val paceMinPerKm: Float? = null
 )

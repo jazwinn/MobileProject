@@ -3,12 +3,17 @@ package com.jazwinn.fitnesstracker.ui.screens
 import android.Manifest
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -16,13 +21,18 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.jazwinn.fitnesstracker.service.StepTrackerService
 import com.jazwinn.fitnesstracker.ui.viewmodel.HomeViewModel
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.jazwinn.fitnesstracker.ui.utils.ShareUtils
+import com.jazwinn.fitnesstracker.ui.navigation.Screen
+import androidx.compose.ui.graphics.vector.ImageVector
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(
+    navController: androidx.navigation.NavController,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val dailySteps by viewModel.dailySteps.collectAsState()
+    val stepGoal by viewModel.stepGoal.collectAsState()
     val context = LocalContext.current
 
     // Permission handling
@@ -60,10 +70,9 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             
-            // Circular Progress (Placeholder logic)
+            // Circular Progress
             val steps = dailySteps?.stepCount ?: 0
-            val goal = 10000
-            val progress = (steps.toFloat() / goal).coerceIn(0f, 1f)
+            val progress = (steps.toFloat() / stepGoal).coerceIn(0f, 1f)
             
             Box(contentAlignment = Alignment.Center, modifier = Modifier.size(200.dp)) {
                 CircularProgressIndicator(
@@ -73,7 +82,7 @@ fun HomeScreen(
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = "$steps", style = MaterialTheme.typography.displayMedium)
-                    Text(text = "/ $goal steps", style = MaterialTheme.typography.bodyMedium)
+                    Text(text = "/ $stepGoal steps", style = MaterialTheme.typography.bodyMedium)
                 }
             }
 
@@ -83,16 +92,47 @@ fun HomeScreen(
                 StatCard(title = "Calories", value = "%.0f kcal".format(dailySteps?.calories ?: 0f))
             }
             
+            // Quick Actions
+            Text(
+                text = "Quick Start",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.align(Alignment.Start)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionCard(
+                    text = "Outdoor Run",
+                    icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate(Screen.Running.route) }
+                )
+                QuickActionCard(
+                    text = "Push-up",
+                    icon = Icons.Default.FitnessCenter,
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate(Screen.ExerciseSession.createRoute("PUSH_UP")) }
+                )
+                QuickActionCard(
+                    text = "Sit-up",
+                    icon = Icons.Default.FitnessCenter,
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate(Screen.ExerciseSession.createRoute("SIT_UP")) }
+                )
+            }
+            
             if (!permissionState.allPermissionsGranted) {
                 Button(onClick = { permissionState.launchMultiplePermissionRequest() }) {
                     Text("Grant Permissions")
                 }
             } else {
                  Button(onClick = {
-                     val steps = dailySteps?.stepCount ?: 0
+                     val currentSteps = dailySteps?.stepCount ?: 0
                      val dist = (dailySteps?.distance ?: 0f) / 1000
                      val cal = dailySteps?.calories ?: 0f
-                     com.jazwinn.fitnesstracker.ui.utils.ShareUtils.shareStats(context, steps, dist, cal)
+                     ShareUtils.shareStats(context, currentSteps, dist, cal)
                  }) {
                      Text("Share Today's Stats")
                  }
@@ -110,3 +150,41 @@ fun StatCard(title: String, value: String) {
         }
     }
 }
+
+@Composable
+fun QuickActionCard(
+    text: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .aspectRatio(0.85f)
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(36.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+

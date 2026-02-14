@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -29,18 +30,31 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.google.common.util.concurrent.ListenableFuture
 import com.jazwinn.fitnesstracker.domain.model.ExerciseType
-import com.jazwinn.fitnesstracker.ui.camera.MediaPipePoseAnalyzer
-import com.jazwinn.fitnesstracker.ui.camera.MediaPipePoseOverlay
+import com.jazwinn.fitnesstracker.ui.camera.YoloPoseAnalyzer
+import com.jazwinn.fitnesstracker.ui.camera.YoloPoseOverlay
 import com.jazwinn.fitnesstracker.ui.viewmodel.ExerciseViewModel
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ExerciseScreen(
+    exerciseType: String? = null,
+    onClose: () -> Unit = {},
+    onNavigateHome: () -> Unit = {},
     viewModel: ExerciseViewModel = hiltViewModel()
 ) {
+    LaunchedEffect(exerciseType) {
+        if (exerciseType != null) {
+            try {
+                val type = ExerciseType.valueOf(exerciseType)
+                viewModel.setExerciseType(type)
+            } catch (e: IllegalArgumentException) {
+                Log.e("ExerciseScreen", "Invalid exercise type: $exerciseType")
+            }
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -49,10 +63,14 @@ fun ExerciseScreen(
 
     var cameraSelector by remember { mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA) }
     
-    // Create analyzer once, not on every update
+    // Create YOLOv8 analyzer once
     val analyzer = remember {
-        MediaPipePoseAnalyzer(context) { result ->
-            viewModel.updatePose(result)
+        Log.d("ExerciseScreen", "Creating YoloPoseAnalyzer...")
+        YoloPoseAnalyzer(context) { results ->
+            if (results.isNotEmpty()) {
+                Log.v("ExerciseScreen", "Received ${results.size} pose results from analyzer")
+            }
+            viewModel.updatePose(results)
         }
     }
 
@@ -67,11 +85,12 @@ fun ExerciseScreen(
     }
 
     if (cameraPermissionState.status.isGranted) {
+        SideEffect { Log.d("ExerciseScreen", "Camera permission GRANTED, rendering camera preview") }
         Box(modifier = Modifier.fillMaxSize()) {
             
             // Use key() to force AndroidView recreation when camera changes
             key(cameraSelector) {
-                // Camera Preview with key to trigger recreation on camera change
+                // Camera Preview
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
@@ -92,9 +111,8 @@ fun ExerciseScreen(
                                 setSurfaceProvider(previewView.surfaceProvider)
                             }
 
-                            // Reuse the same analyzer instance
                             val imageAnalysis = ImageAnalysis.Builder()
-                                .setTargetResolution(android.util.Size(1280, 720)) // 720p for better quality
+                                .setTargetResolution(android.util.Size(1280, 720))
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build()
                                 .apply {
@@ -120,24 +138,20 @@ fun ExerciseScreen(
                 )
             }
 
-            // MediaPipe Pose Skeleton Overlay
-            val detectedPoseResult = uiState.detectedPose
-            if (detectedPoseResult != null) {
-                MediaPipePoseOverlay(result = detectedPoseResult)
+            // YOLOv8 Pose Skeleton Overlay
+            val detectedPoses = uiState.detectedPoses
+            if (uiState.showOverlay && detectedPoses.isNotEmpty()) {
+                YoloPoseOverlay(results = detectedPoses)
             }
             
-            // Simple detection indicator - Green circle = detecting, red = not detecting
+            // Detection indicator - Green = detecting, Red = not detecting
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
                     .size(20.dp)
                     .background(
-                        color = if (detectedPoseResult != null && detectedPoseResult.landmarks().isNotEmpty()) {
-                            Color.Green
-                        } else {
-                            Color.Red
-                        },
+                        color = if (detectedPoses.isNotEmpty()) Color.Green else Color.Red,
                         shape = CircleShape
                     )
             )
@@ -176,18 +190,55 @@ fun ExerciseScreen(
                         }
                     }
 
-                    IconButton(onClick = {
-                        cameraSelector = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
-                            CameraSelector.DEFAULT_FRONT_CAMERA
-                        } else {
-                            CameraSelector.DEFAULT_BACK_CAMERA
-                        }
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Cameraswitch,
-                            contentDescription = "Switch Camera",
-                            tint = Color.White
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Toggle Overlay Switch
+                        Text("Skeleton", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Switch(
+                            checked = uiState.showOverlay,
+                            onCheckedChange = { viewModel.toggleOverlay() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        IconButton(onClick = {
+                            cameraSelector = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+                                CameraSelector.DEFAULT_FRONT_CAMERA
+                            } else {
+                                CameraSelector.DEFAULT_BACK_CAMERA
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Cameraswitch,
+                                contentDescription = "Switch Camera",
+                                tint = Color.White
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Home Button
+                        IconButton(onClick = onNavigateHome) {
+                            Icon(
+                                imageVector = Icons.Default.Home,
+                                contentDescription = "Home",
+                                tint = Color.White
+                            )
+                        }
+
+                        // Close Button
+                        IconButton(onClick = onClose) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
                 
@@ -252,6 +303,17 @@ fun ExerciseScreen(
                                 )
                             ) {
                                 Text("Save & Reset")
+                            }
+                            
+                            // Restart without saving
+                            Button(
+                                onClick = { viewModel.restartWithoutSaving() },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text("Restart")
                             }
                         }
                     }
