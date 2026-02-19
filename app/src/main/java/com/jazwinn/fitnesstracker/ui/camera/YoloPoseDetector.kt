@@ -62,7 +62,7 @@ class YoloPoseDetector(context: Context) {
 
     companion object {
         private const val TAG = "YoloPoseDetector"
-        private const val MODEL_NAME = "yolo26n-pose_float16.tflite"
+        private const val MODEL_NAME = "yolo26n-pose.tflite"
         private const val NUM_KEYPOINTS = 17
     }
 

@@ -29,6 +29,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
     }
 
     buildTypes {
@@ -49,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     externalNativeBuild {
@@ -112,6 +114,8 @@ dependencies {
     implementation(libs.tensorflow.lite.support)
     implementation(libs.tensorflow.lite.gpu)
     implementation(libs.tensorflow.lite.gpu.api)
+    implementation(libs.google.ai.client)
+    implementation(libs.compose.markdown)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)

@@ -25,6 +25,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
         fun createRoute(type: String) = "exercise_session/$type"
     }
 
+    data object MachineRecognition : Screen("machine_recognition", "Scan Machine", Icons.Filled.FitnessCenter)
+
     data object Running : Screen("running", "Running", Icons.Filled.DirectionsRun)
     data object Settings : Screen("settings", "Settings", Icons.Filled.Settings)
 }

@@ -5,9 +5,12 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,6 +68,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -121,6 +125,21 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f),
                     onClick = { navController.navigate(Screen.ExerciseSession.createRoute("SIT_UP")) }
                 )
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                 QuickActionCard(
+                    text = "Scan Machine",
+                    icon = Icons.Filled.Camera,
+                    modifier = Modifier.weight(1f),
+                    onClick = { navController.navigate(Screen.MachineRecognition.route) }
+                )
+                 // Spacer to keep alignment if we only have 1 item in this row
+                 Spacer(modifier = Modifier.weight(1f))
+                 Spacer(modifier = Modifier.weight(1f))
             }
             
             if (!permissionState.allPermissionsGranted) {

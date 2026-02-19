@@ -229,7 +229,7 @@ fun ExerciseScreen(
                                 tint = Color.White
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.width(8.dp))
 
                         // Home Button

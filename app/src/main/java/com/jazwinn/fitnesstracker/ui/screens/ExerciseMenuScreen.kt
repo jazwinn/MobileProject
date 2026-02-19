@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -69,6 +70,38 @@ fun ExerciseMenuScreen(navController: NavController) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Outdoor Run",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+            // Scan Machine Card
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clickable { navController.navigate(Screen.MachineRecognition.route) },
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Camera,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Scan Machine",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )

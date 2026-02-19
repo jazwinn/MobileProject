@@ -104,13 +104,18 @@ fun MainScreen() {
                     onNavigateHome = {
                         navController.navigate(Screen.Home.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                                inclusive = false
                             }
                             launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 ) 
+            }
+            
+            composable(Screen.MachineRecognition.route) {
+                com.jazwinn.fitnesstracker.ui.screens.machine.MachineRecognitionScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
             
             composable(Screen.Running.route) { 
