@@ -6,10 +6,11 @@ A modern, offline-first Android application for tracking daily steps, logging GP
 
 *   **🏃 GPS Run Tracking**: Real-time run tracking with Google Maps integration. Visualizes your running path, calculates distance, pace, and speed, and displays momentum analytics.
 *   **👟 Step Tracking**: Background step counting using real-time hardware sensors (accelerometer/step detector).
-*   **🤖 AI Exercise Coach**: Real-time form analysis for Push-ups and Sit-ups using **YOLOv8** and **CameraX**. Counts repetitions and provides instant feedback on your form.
+*   **🤖 AI Exercise Coach**: Real-time form analysis for Push-ups and Sit-ups using **YOLO26** and **CameraX**. Counts repetitions and provides instant feedback on your form.
+*   **📸 Machine Recognition**: Identifies gym equipment using a local **TFLite** model and generates comprehensive usage guides (setup, technique, safety) using **Google Gemini AI**.
 *   **📅 Interactive History**: Browse your fitness journey with a custom calendar view. Tap any date to see a detailed breakdown of steps, runs, and workouts.
 *   **📊 Weekly Stats**: Visualize your progress with beautiful custom charts and trend analysis.
-*   **👤 Profile & Settings**: Personalize your profile, manage goals, and toggle between Light/Dark themes.
+*   **👤 Profile & Settings**: Personalize your profile and manage goals.
 
 ## 🔑 API Configuration (Required)
 
@@ -27,7 +28,11 @@ To use the Map and Location features, you must configure a Google Cloud API Key.
     *   Add the following line (replace `YOUR_KEY` with your actual key):
         ```properties
         MAPS_API_KEY=YOUR_AIzaSy_ACTUAL_API_KEY
+        GEMINI_API_KEY=YOUR_AIzaSy_ACTUAL_GEMINI_KEY
         ```
+
+> [!NOTE]
+> To use the **Machine Recognition** feature, you need a valid [Google Gemini API Key](https://aistudio.google.com/app/apikey).
 
 > [!IMPORTANT]  
 > Without this key, the Map view in the Running capability will not function correctly.
@@ -44,7 +49,7 @@ The application follows strictly typed **Clean Architecture** principles with **
 *   **Database**: Room (SQLite)
 *   **Preferences**: DataStore
 *   **Maps**: Google Maps SDK for Android
-*   **Computer Vision**: YOLOv8 (ONNX Runtime) & CameraX
+*   **Computer Vision**: YOLO26 (TensorFlow Lite) & CameraX
 *   **Async**: Coroutines & Flows
 *   **Image Loading**: Coil
 
@@ -106,7 +111,13 @@ graph TD
 *   Navigate to the **Exercise** tab.
 *   Select "Push-ups" or "Sit-ups".
 *   **Grant Camera Permission** and place your phone to see your full body.
-*   The AI will detect your pose, count reps, and check your form.
+*   **The AI will detect your pose, count reps, and check your form using YOLO26.**
+
+### 4. Machine Recognition
+*   Tap **"Scan Machine"** on the Home Dashboard or Select Exercise screen.
+*   Point your camera at a gym machine and snap a photo (or import from gallery).
+*   Confirm the machine name.
+*   Receive a **detailed AI-generated guide** covering setup, form, breathing, and safety tips.
 
 ### 4. History
 *   Tap the **History** tab to see your activity log.
@@ -117,6 +128,8 @@ graph TD
 *   **"Map is blank"**: Ensure you have added the `MAPS_API_KEY` to `local.properties` and enabled the **Maps SDK for Android** in Google Cloud Console.
 *   **"Location not updating"**: Check if "Location" is enabled in your phone's Quick Settings.
 *   **"Camera permission required"**: Go to Android Settings > Apps > Fitness Tracker > Permissions and enable Camera.
+*   **"API Key missing"**: Ensure `GEMINI_API_KEY` is added to `local.properties` for AI features.
+*   **"Labels missing"**: Ensure `app/src/main/assets/labels.txt` exists and matches your TFLite model classes.
 
 ## 📜 License
 This project is for educational purposes.
