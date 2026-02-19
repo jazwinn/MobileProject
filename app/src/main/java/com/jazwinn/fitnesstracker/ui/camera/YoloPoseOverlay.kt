@@ -47,11 +47,10 @@ fun YoloPoseOverlay(
             12 to 14, 14 to 16
         )
 
-        // Rotate 90 degrees CLOCKWISE to match camera orientation: new_x = (1 - y), new_y = x
+        // Coordinates are already in the correct orientation (relative to screen/bitmap)
+        // because we used imageProxy.toBitmap() which handles rotation.
         fun transformCoords(x: Float, y: Float): Offset {
-            val rotatedX = (1f - y) * size.width
-            val rotatedY = x * size.height
-            return Offset(rotatedX, rotatedY)
+            return Offset(x * size.width, y * size.height)
         }
 
         for (pose in results) {
@@ -59,7 +58,13 @@ fun YoloPoseOverlay(
 
             // Only draw if we have enough confident keypoints
             val confidentCount = keypoints.count { it.confidence >= MIN_CONFIDENCE }
-            if (confidentCount < MIN_KEYPOINTS_REQUIRED) continue
+            if (confidentCount < MIN_KEYPOINTS_REQUIRED) {
+                // Log only occasionally or for the first few frames to avoid spam, but for now we need debug info
+                // android.util.Log.v("YoloPoseOverlay", "Skipping pose: only $confidentCount/$MIN_KEYPOINTS_REQUIRED confident points")
+                continue
+            }
+            
+            // android.util.Log.d("YoloPoseOverlay", "Drawing pose with $confidentCount confident points")
 
             // Draw connections
             for ((startIdx, endIdx) in connections) {

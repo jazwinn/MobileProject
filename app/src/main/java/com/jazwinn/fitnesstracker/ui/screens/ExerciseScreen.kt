@@ -62,6 +62,15 @@ fun ExerciseScreen(
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     var cameraSelector by remember { mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA) }
+
+    // Check for camera availability to avoid startup crash on devices without back camera (e.g. some emulators)
+    LaunchedEffect(Unit) {
+        val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+        if (!cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) && cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+            cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+            Log.i("ExerciseScreen", "Defaulting to FRONT camera (Back camera not found)")
+        }
+    }
     
     // Create YOLOv8 analyzer once
     val analyzer = remember {
@@ -112,7 +121,8 @@ fun ExerciseScreen(
                             }
 
                             val imageAnalysis = ImageAnalysis.Builder()
-                                .setTargetResolution(android.util.Size(1280, 720))
+                                .setTargetResolution(android.util.Size(640, 480))
+                                .setTargetRotation(previewView.display.rotation)
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build()
                                 .apply {

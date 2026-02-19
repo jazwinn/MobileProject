@@ -107,8 +107,11 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.maps.compose)
     
-    // ONNX Runtime for YOLOv8 pose estimation
-    implementation(libs.onnxruntime.android)
+    // TensorFlow Lite for YOLOv8 pose estimation
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.support)
+    implementation(libs.tensorflow.lite.gpu)
+    implementation(libs.tensorflow.lite.gpu.api)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)

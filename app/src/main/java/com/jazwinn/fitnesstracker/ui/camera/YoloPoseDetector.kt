@@ -3,9 +3,10 @@ package com.jazwinn.fitnesstracker.ui.camera
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
+import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.support.common.FileUtil
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import kotlin.math.max
 import kotlin.math.min
@@ -44,15 +45,14 @@ data class PoseDetectionResult(
 }
 
 /**
- * YOLOv8 Pose Detector using ONNX Runtime.
+ * YOLOv8 Pose Detector using TensorFlow Lite.
  * 
- * Loads a yolov8n-pose.onnx model from assets and runs inference on bitmaps.
- * Input: 640x640 RGB image, Output: bounding boxes + 17 COCO keypoints per person.
+ * Loads a yolo26n-pose_float32.tflite model from assets and runs inference on bitmaps.
+ * Input: 640x640 RGB image (NHWC), Output: bounding boxes + 17 COCO keypoints per person.
  */
 class YoloPoseDetector(context: Context) {
 
-    private val ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
-    private val ortSession: OrtSession
+    private var interpreter: Interpreter? = null
     
     private val inputSize = 640 // YOLOv8 expects 640x640
 
@@ -62,305 +62,213 @@ class YoloPoseDetector(context: Context) {
 
     companion object {
         private const val TAG = "YoloPoseDetector"
-        private const val MODEL_NAME = "yolov8n-pose.onnx"
+        private const val MODEL_NAME = "yolo26n-pose_float16.tflite"
         private const val NUM_KEYPOINTS = 17
     }
 
+    private var outputShape: IntArray = intArrayOf(1, 56, 8400)
+    private lateinit var imageProcessor: org.tensorflow.lite.support.image.ImageProcessor
+    
     init {
-        Log.d(TAG, "🔄 Initializing YOLOv8 Pose Detector...")
+        Log.d(TAG, "🔄 Initializing YOLOv8 Pose Detector (TFLite)...")
         try {
-            // 1. Read model file
-            val inputStream = context.assets.open(MODEL_NAME)
-            val modelBytes = inputStream.readBytes()
-            inputStream.close()
-            Log.d(TAG, "📂 Read model '$MODEL_NAME': ${modelBytes.size} bytes")
+            // 1. Load model file
+            val mappedByteBuffer = FileUtil.loadMappedFile(context, MODEL_NAME)
+            Log.d(TAG, "📂 Read model '$MODEL_NAME'")
 
-            // 2. Create session options
-            val sessionOptions = OrtSession.SessionOptions()
-            // remove "ORT" format constraint to support standard ONNX files
-            // sessionOptions.addConfigEntry("session.load_model_format", "ORT")
-
-            // 3. Create session
-            Log.d(TAG, "⚙️ Creating ORT session...")
-            ortSession = ortEnv.createSession(modelBytes, sessionOptions)
+            // 2. Init Interpreter with safe fallback
+        try {
+            // Attempt 1: Try with GPU Delegate
+            val optionsGpu = Interpreter.Options()
+            optionsGpu.setNumThreads(4)
+            optionsGpu.addDelegate(org.tensorflow.lite.gpu.GpuDelegate())
             
-            Log.d(TAG, "✅ YOLOv8 Pose model loaded. Input: ${ortSession.inputNames}, Output: ${ortSession.outputNames}")
+            Log.d(TAG, "⚙️ Creating TFLite interpreter with GPU Delegate...")
+            interpreter = Interpreter(mappedByteBuffer, optionsGpu)
+            Log.d(TAG, "🚀 GPU Delegate successfully applied.")
+        } catch (e: Throwable) {
+            Log.e(TAG, "⚠️ GPU Delegate failed to apply (unsupported ops). Falling back to CPU.", e)
+            
+            // Attempt 2: Fallback to CPU
+            try {
+                val optionsCpu = Interpreter.Options()
+                optionsCpu.setNumThreads(4)
+                Log.d(TAG, "⚙️ Creating TFLite interpreter (CPU Fallback)...")
+                interpreter = Interpreter(mappedByteBuffer, optionsCpu)
+                Log.d(TAG, "✅ CPU Interpreter created successfully.")
+            } catch (eCpu: Exception) {
+                 Log.e(TAG, "❌ CRITICAL: Failed to initialize TFLite Interpreter even on CPU", eCpu)
+                 throw eCpu
+            }
+        }
+            
+            // 4. Inspect output shape
+            val outputTensor = interpreter?.getOutputTensor(0)
+            if (outputTensor != null) {
+                outputShape = outputTensor.shape() 
+            }
+            
+            // 5. Initialize Image Processor (Resize + Normalize)
+            imageProcessor = org.tensorflow.lite.support.image.ImageProcessor.Builder()
+                .add(org.tensorflow.lite.support.image.ops.ResizeOp(inputSize, inputSize, org.tensorflow.lite.support.image.ops.ResizeOp.ResizeMethod.BILINEAR))
+                .add(org.tensorflow.lite.support.common.ops.NormalizeOp(0f, 255f))
+                .build()
+            
+            Log.d(TAG, "✅ YOLOv8 Pose model loaded.")
         } catch (e: Exception) {
             Log.e(TAG, "❌ CRITICAL: Failed to initialize YoloPoseDetector", e)
-            throw e // Re-throw to be caught by Analyzer
+            throw e 
         }
     }
 
     /**
      * Run pose detection on a bitmap.
-     * @param bitmap The input image (any size, will be resized to 640x640)
-     * @return List of detected poses, empty if none found
+     * @param bitmap The input image.
+     * @return List of detected poses.
      */
     fun detect(bitmap: Bitmap): List<PoseDetectionResult> {
-        val originalWidth = bitmap.width
-        val originalHeight = bitmap.height
+        try {
+            val originalWidth = bitmap.width
+            val originalHeight = bitmap.height
 
-        // 1. Preprocess: resize with letterboxing, normalize to [0,1], convert to NCHW float tensor
-        val (inputTensor, padInfo) = preprocess(bitmap)
-
-        // 2. Run inference
-        val inputName = ortSession.inputNames.first()
-        val onnxTensor = OnnxTensor.createTensor(ortEnv, inputTensor, longArrayOf(1, 3, inputSize.toLong(), inputSize.toLong()))
-        
-        val results = ortSession.run(mapOf(inputName to onnxTensor))
-        
-        // 3. Post-process: parse output tensor into pose results
-        // YOLOv8-pose output shape: [1, 56, 8400]
-        // 56 = 4 (bbox: cx, cy, w, h) + 1 (conf) + 51 (17 keypoints × 3: x, y, visibility)
-        val outputName = ortSession.outputNames.first()
-        val outputTensor = results[outputName].get() as OnnxTensor
-        val outputData = outputTensor.floatBuffer
-
-        val poses = postprocess(outputData, padInfo, originalWidth, originalHeight)
-
-        onnxTensor.close()
-        results.close()
-
-        return poses
-    }
-
-    /**
-     * Run pose detection on a pre-processed NCHW float array.
-     * @param nchwFloats The input float array (3 * 640 * 640), normalized [0, 1]
-     * @param originalWidth Width of the original camera frame (for post-processing coordinates)
-     * @param originalHeight Height of the original camera frame
-     * @return List of detected poses, empty if none found
-     */
-    fun detect(nchwFloats: FloatArray, originalWidth: Int, originalHeight: Int): List<PoseDetectionResult> {
-        // Create ONNX Tensor from float array
-        val inputTensor = FloatBuffer.wrap(nchwFloats)
-        
-        // Calculate scale/pad info for post-processing
-        // Since the C++ code resizes with aspect ratio preservation (or simple resize? let's check C++ logic)
-        // Wait, the C++ logic I wrote does SIMPLE resize (sx = x * srcWidth / dstWidth).
-        // It DOES NOT do letterboxing. It stretches the image!
-        // This is fine for YOLO usually, but coordinates mapping back might be slightly different.
-        // For now, let's assume we map back using simple scaling.
-        val padInfo = PadInfo(
-            scale = max(inputSize.toFloat() / originalWidth, inputSize.toFloat() / originalHeight), // Approximation
-            padX = 0,
-            padY = 0
-        )
-        // Actually, since C++ does direct resize without padding:
-        // x_original = x_640 * (originalWidth / 640)
-        // y_original = y_640 * (originalHeight / 640)
-        // My postprocess function uses PadInfo which assumes letterboxing.
-        // I should probably update postprocess to handle "stretched" resize if that's what C++ does.
-        // OR, I should update C++ to do letterboxing.
-        // Given "simple nearest-neighbor resizing", it STRETCHES.
-        // Let's stick to STRETCHING for speed, and update postprocess logic indirectly by faking PadInfo 
-        // effectively: scaleX = 640/w, scaleY = 640/h.
-        // But postprocess uses a single 'scale'.
-        
-        // Let's use a specialized post-process for this, or modify postprocess.
-        // For now, let's execute inference.
-        
-        val inputName = ortSession.inputNames.first()
-        val onnxTensor = OnnxTensor.createTensor(ortEnv, inputTensor, longArrayOf(1, 3, inputSize.toLong(), inputSize.toLong()))
-        
-        val results = ortSession.run(mapOf(inputName to onnxTensor))
-        
-        val outputName = ortSession.outputNames.first()
-        val outputTensor = results[outputName].get() as OnnxTensor
-        val outputData = outputTensor.floatBuffer
-
-        // We need a post-process that handles independent X/Y scaling because we stretched the image.
-        val poses = postprocessStretched(outputData, originalWidth, originalHeight)
-
-        onnxTensor.close()
-        results.close()
-
-        return poses
-    }
-
-    /**
-     * Post-process logic for image that was STRETCHED to 640x640 (not letterboxed).
-     */
-    private fun postprocessStretched(
-        outputData: FloatBuffer,
-        originalWidth: Int,
-        originalHeight: Int
-    ): List<PoseDetectionResult> {
-        val numDetections = 8400
-        val numChannels = 56 
-
-        val detections = Array(numDetections) { FloatArray(numChannels) }
-        for (c in 0 until numChannels) {
-            for (d in 0 until numDetections) {
-                detections[d][c] = outputData.get(c * numDetections + d)
+            // 1. Preprocess using Support Library (Fast!)
+            var tensorImage = org.tensorflow.lite.support.image.TensorImage(org.tensorflow.lite.DataType.FLOAT32)
+            
+            // Ensure bitmap is ARGB_8888 (Hardware bitmaps cause crashes with TensorImage)
+            val argbBitmap = if (bitmap.config != Bitmap.Config.ARGB_8888) {
+                bitmap.copy(Bitmap.Config.ARGB_8888, true)
+            } else {
+                bitmap
             }
-        }
-
-        val candidates = mutableListOf<PoseDetectionResult>()
-        for (det in detections) {
-            val conf = det[4]
-            if (conf < confThreshold) continue
-
-            // Box in 640x640
-            val cx = det[0]; val cy = det[1]; val w = det[2]; val h = det[3]
             
-            // Map back to original size (Stretched)
-            // x_orig = x_640 / 640 * origW
-            val normX = 1f / inputSize * originalWidth
-            val normY = 1f / inputSize * originalHeight
+            tensorImage.load(argbBitmap)
+            tensorImage = imageProcessor.process(tensorImage)
             
-            val cxOrig = cx * normX
-            val cyOrig = cy * normY
-            val wOrig = w * normX
-            val hOrig = h * normY
+            // 2. Run inference
+            val d1 = outputShape[1]
+            val d2 = outputShape[2]
             
-            val x1 = (cxOrig - wOrig / 2) / originalWidth
-            val y1 = (cyOrig - hOrig / 2) / originalHeight
-            val x2 = (cxOrig + wOrig / 2) / originalWidth
-            val y2 = (cyOrig + hOrig / 2) / originalHeight
+            val outputArray = Array(1) { Array(d1) { FloatArray(d2) } }
             
-            val boundingBox = floatArrayOf(
-                 x1.coerceIn(0f, 1f), y1.coerceIn(0f, 1f),
-                 x2.coerceIn(0f, 1f), y2.coerceIn(0f, 1f)
-            )
-
-            val keypoints = mutableListOf<Keypoint>()
-            for (k in 0 until NUM_KEYPOINTS) {
-                val kx = det[5 + k * 3]
-                val ky = det[5 + k * 3 + 1]
-                val kConf = det[5 + k * 3 + 2]
-                
-                val finalX = (kx * normX / originalWidth).coerceIn(0f, 1f)
-                val finalY = (ky * normY / originalHeight).coerceIn(0f, 1f)
-                
-                keypoints.add(Keypoint(finalX, finalY, kConf))
+            interpreter?.run(tensorImage.buffer, outputArray)
+            
+            // 3. Post-process (Handle Stretched Input)
+            val poses = postprocess(outputArray[0], originalWidth, originalHeight)
+            
+            if (argbBitmap != bitmap) {
+                argbBitmap.recycle()
             }
 
-            candidates.add(PoseDetectionResult(boundingBox, conf, keypoints))
+            return poses
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error during detection: ${e.message}", e)
+            return emptyList()
         }
-
-        return applyNMS(candidates)
     }
-
-    /**
-     * Preprocess bitmap: letterbox resize to 640x640, normalize to [0,1], return NCHW float buffer.
-     */
-    private fun preprocess(bitmap: Bitmap): Pair<FloatBuffer, PadInfo> {
-        // Calculate letterbox dimensions
-        val scale = min(inputSize.toFloat() / bitmap.width, inputSize.toFloat() / bitmap.height)
-        val newWidth = (bitmap.width * scale).toInt()
-        val newHeight = (bitmap.height * scale).toInt()
-        val padX = (inputSize - newWidth) / 2
-        val padY = (inputSize - newHeight) / 2
-
-        // Resize bitmap
-        // createScaledBitmap might return the same object if dimensions match
-        val resized = if (bitmap.width != newWidth || bitmap.height != newHeight) {
-            Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
-        } else {
-            bitmap
-        }
-        
-        // Create padded 640x640 bitmap with gray fill (114, 114, 114)
-        // Optimization: If resized matches inputSize, use it directly (don't create new bitmap)
-        val padded = if (resized.width == inputSize && resized.height == inputSize) {
-            resized
-        } else {
-            val p = Bitmap.createBitmap(inputSize, inputSize, Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(p)
-            canvas.drawColor(android.graphics.Color.rgb(114, 114, 114))
-            canvas.drawBitmap(resized, padX.toFloat(), padY.toFloat(), null)
-            p
-        }
-        
-        if (resized != bitmap && resized != padded) {
-            resized.recycle()
-        }
-
-        // Convert to NCHW float buffer, normalized to [0, 1]
-        val pixels = IntArray(inputSize * inputSize)
-        padded.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
-        
-        // Only recycle padded if we created it (i.e. it's not the input bitmap)
-        if (padded != bitmap) {
-            padded.recycle()
-        }
-
-        val buffer = FloatBuffer.allocate(3 * inputSize * inputSize)
-        val channelSize = inputSize * inputSize
-
-        // Write R, G, B channels sequentially (NCHW format)
-        for (i in pixels.indices) {
-            buffer.put(i, ((pixels[i] shr 16) and 0xFF) / 255f)               // R
-            buffer.put(i + channelSize, ((pixels[i] shr 8) and 0xFF) / 255f)  // G
-            buffer.put(i + 2 * channelSize, (pixels[i] and 0xFF) / 255f)      // B
-        }
-
-        buffer.rewind()
-        return Pair(buffer, PadInfo(scale, padX, padY))
-    }
+    
+    // Manual preprocess removed in favor of ImageProcessor
 
     /**
      * Post-process YOLOv8-pose output tensor.
-     * Output shape: [1, 56, 8400] transposed to [8400, 56] for easier parsing.
+     * Handles both [56][8400] and [300][57].
      */
     private fun postprocess(
-        outputData: FloatBuffer,
-        padInfo: PadInfo,
+        outputData: Array<FloatArray>, 
         originalWidth: Int,
         originalHeight: Int
     ): List<PoseDetectionResult> {
-        val numDetections = 8400
-        val numChannels = 56 // 4 bbox + 1 conf + 51 keypoints (17 * 3)
-
-        // Read transposed: output is [1, 56, 8400], we need [8400, 56]
-        val detections = Array(numDetections) { FloatArray(numChannels) }
-        for (c in 0 until numChannels) {
-            for (d in 0 until numDetections) {
-                detections[d][c] = outputData.get(c * numDetections + d)
-            }
-        }
-
-        // Filter by confidence
+        val dim1 = outputData.size       // 56 or 300
+        val dim2 = outputData[0].size    // 8400 or 57
+        
         val candidates = mutableListOf<PoseDetectionResult>()
-        for (det in detections) {
-            val conf = det[4]
-            if (conf < confThreshold) continue
 
-            // Convert cx, cy, w, h → x1, y1, x2, y2 (in 640×640 space)
-            val cx = det[0]; val cy = det[1]; val w = det[2]; val h = det[3]
-            val x1 = cx - w / 2; val y1 = cy - h / 2
-            val x2 = cx + w / 2; val y2 = cy + h / 2
-
-            // Remove letterbox padding and normalize to [0, 1]
-            val bx1 = ((x1 - padInfo.padX) / padInfo.scale / originalWidth).coerceIn(0f, 1f)
-            val by1 = ((y1 - padInfo.padY) / padInfo.scale / originalHeight).coerceIn(0f, 1f)
-            val bx2 = ((x2 - padInfo.padX) / padInfo.scale / originalWidth).coerceIn(0f, 1f)
-            val by2 = ((y2 - padInfo.padY) / padInfo.scale / originalHeight).coerceIn(0f, 1f)
-
-            // Parse 17 keypoints (each has x, y, visibility starting at index 5)
-            val keypoints = mutableListOf<Keypoint>()
-            for (k in 0 until NUM_KEYPOINTS) {
-                val kx = det[5 + k * 3]
-                val ky = det[5 + k * 3 + 1]
-                val kConf = det[5 + k * 3 + 2]
-
-                // Remove padding and normalize
-                val normalizedX = ((kx - padInfo.padX) / padInfo.scale / originalWidth).coerceIn(0f, 1f)
-                val normalizedY = ((ky - padInfo.padY) / padInfo.scale / originalHeight).coerceIn(0f, 1f)
-
-                keypoints.add(Keypoint(normalizedX, normalizedY, kConf))
+        if (dim1 == 300 && dim2 == 57) {
+            // [300][57] TFLite Fused
+            for (d in 0 until dim1) {
+                val detection = outputData[d]
+                val score = detection[4] 
+                
+                if (score < confThreshold) continue 
+                
+                // Heuristic Check for normalization (sometimes export creates pixels, sometimes normalized)
+                // If coordinates are clearly > 1.0, they are pixels.
+                val isNormalized = (detection[0] <= 1.5f && detection[2] <= 1.5f) 
+                
+                val divisor = if (isNormalized) 1.0f else inputSize.toFloat()
+                
+                // Coordinates
+                val cx = detection[0] / divisor
+                val cy = detection[1] / divisor
+                val w = detection[2] / divisor
+                val h = detection[3] / divisor
+                
+                val x1 = cx - w / 2
+                val y1 = cy - h / 2
+                val x2 = cx + w / 2
+                val y2 = cy + h / 2
+                
+                // Parse keypoints
+                val keypoints = mutableListOf<Keypoint>()
+                for (k in 0 until NUM_KEYPOINTS) {
+                    val offset = 6 + k * 3
+                    val kx = detection[offset] / divisor
+                    val ky = detection[offset + 1] / divisor
+                    val kConf = detection[offset + 2]
+                    
+                    keypoints.add(Keypoint(kx.coerceIn(0f, 1f), ky.coerceIn(0f, 1f), kConf))
+                }
+                
+                candidates.add(PoseDetectionResult(
+                    boundingBox = floatArrayOf(
+                        x1.coerceIn(0f, 1f), y1.coerceIn(0f, 1f),
+                        x2.coerceIn(0f, 1f), y2.coerceIn(0f, 1f)
+                    ),
+                    score = score,
+                    keypoints = keypoints
+                ))
             }
+            return candidates
+            
+        } else if (dim1 == 56 && dim2 == 8400) {
+            // [56][8400]
+            val numDetections = dim2
+            
+            for (d in 0 until numDetections) {
+                val conf = outputData[4][d]
+                if (conf < confThreshold) continue
 
-            candidates.add(PoseDetectionResult(
-                boundingBox = floatArrayOf(bx1, by1, bx2, by2),
-                score = conf,
-                keypoints = keypoints
-            ))
+                val cx = outputData[0][d] / inputSize
+                val cy = outputData[1][d] / inputSize
+                val w = outputData[2][d] / inputSize
+                val h = outputData[3][d] / inputSize
+                
+                val x1 = cx - w / 2
+                val y1 = cy - h / 2
+                val x2 = cx + w / 2
+                val y2 = cy + h / 2
+
+                val keypoints = mutableListOf<Keypoint>()
+                for (k in 0 until NUM_KEYPOINTS) {
+                    val kx = outputData[5 + k * 3][d] / inputSize
+                    val ky = outputData[5 + k * 3 + 1][d] / inputSize
+                    val kConf = outputData[5 + k * 3 + 2][d]
+
+                    keypoints.add(Keypoint(kx.coerceIn(0f, 1f), ky.coerceIn(0f, 1f), kConf))
+                }
+
+                candidates.add(PoseDetectionResult(
+                    boundingBox = floatArrayOf(
+                        x1.coerceIn(0f, 1f), y1.coerceIn(0f, 1f),
+                        x2.coerceIn(0f, 1f), y2.coerceIn(0f, 1f)
+                    ),
+                    score = conf,
+                    keypoints = keypoints
+                ))
+            }
+            return applyNMS(candidates)
         }
-
-        // Apply NMS
-        return applyNMS(candidates)
+        
+        return emptyList()
     }
 
     /**
@@ -373,7 +281,7 @@ class YoloPoseDetector(context: Context) {
         val result = mutableListOf<PoseDetectionResult>()
 
         while (sorted.isNotEmpty()) {
-            val best = sorted.removeFirst()
+            val best = sorted.removeAt(0)
             result.add(best)
             sorted.removeAll { calculateIoU(best.boundingBox, it.boundingBox) > iouThreshold }
         }
@@ -392,9 +300,9 @@ class YoloPoseDetector(context: Context) {
     }
 
     fun close() {
-        Log.d(TAG, "🔄 Closing YOLOv8 Pose Detector")
-        ortSession.close()
-        ortEnv.close()
+        Log.d(TAG, "🔄 Closing YOLO26 Pose Detector")
+        interpreter?.close()
+        interpreter = null
     }
 
     private data class PadInfo(val scale: Float, val padX: Int, val padY: Int)
