@@ -1,15 +1,36 @@
 # Android Fitness Tracker
 
-A modern, offline-first Android application for tracking daily steps, logging workouts, and analyzing exercise form using on-device Machine Learning.
+A modern, offline-first Android application for tracking daily steps, logging GPS runs, and analyzing exercise form using on-device Machine Learning.
 
 ## 🚀 Features
 
-*   **Step Tracking**: Background step counting using real-time hardware sensors (accelerometer/step detector).
-*   **Exercise Analysis**: AI-powered push-up and sit-up detection using **ML Kit (Pose Detection)** and **CameraX**. Calculates repetitions and provides feedback.
-*   **Interactive Calendar History**: Browse your fitness history with an interactive calendar grid. Select any date to view detailed stats (steps, calories, workouts) for that specific day.
-*   **Profile Management**: View/Edit modes for clean data presentation. Upload custom profile pictures from your device gallery.
-*   **Settings & Preferences**: Functional dark/light theme toggle, notification preferences, and measurement unit selection - all persisted locally.
-*   **Social Sharing**: Share your workout achievements with custom-generated milestone cards.
+*   **🏃 GPS Run Tracking**: Real-time run tracking with Google Maps integration. Visualizes your running path, calculates distance, pace, and speed, and displays momentum analytics.
+*   **👟 Step Tracking**: Background step counting using real-time hardware sensors (accelerometer/step detector).
+*   **🤖 AI Exercise Coach**: Real-time form analysis for Push-ups and Sit-ups using **YOLOv8** and **CameraX**. Counts repetitions and provides instant feedback on your form.
+*   **📅 Interactive History**: Browse your fitness journey with a custom calendar view. Tap any date to see a detailed breakdown of steps, runs, and workouts.
+*   **📊 Weekly Stats**: Visualize your progress with beautiful custom charts and trend analysis.
+*   **👤 Profile & Settings**: Personalize your profile, manage goals, and toggle between Light/Dark themes.
+
+## 🔑 API Configuration (Required)
+
+To use the Map and Location features, you must configure a Google Cloud API Key.
+
+1.  **Create a Project** in the [Google Cloud Console](https://console.cloud.google.com/).
+2.  **Enable the following APIs** for your project:
+    *   **Maps SDK for Android** (Required for map rendering)
+    *   **Geolocation API** (Required for precise location)
+    *   **Directions API** (For future route planning features)
+    *   **Places API** (For location search and points of interest)
+3.  **Generate an API Key**.
+4.  **Add the key to your project**:
+    *   Open `local.properties` in the project root.
+    *   Add the following line (replace `YOUR_KEY` with your actual key):
+        ```properties
+        MAPS_API_KEY=YOUR_AIzaSy_ACTUAL_API_KEY
+        ```
+
+> [!IMPORTANT]  
+> Without this key, the Map view in the Running capability will not function correctly.
 
 ## 🏗️ System Architecture
 
@@ -18,12 +39,14 @@ The application follows strictly typed **Clean Architecture** principles with **
 ### Technology Stack
 *   **Language**: Kotlin
 *   **UI**: Jetpack Compose (Material3)
+*   **Navigation**: Jetpack Navigation Compose
 *   **Dependency Injection**: Hilt
-*   **Database**: Room (SQLite) with DataStore for preferences
+*   **Database**: Room (SQLite)
+*   **Preferences**: DataStore
+*   **Maps**: Google Maps SDK for Android
+*   **Computer Vision**: YOLOv8 (ONNX Runtime) & CameraX
 *   **Async**: Coroutines & Flows
-*   **Computer Vision**: Google ML Kit (Pose Detection) & CameraX
-*   **Image Loading**: Coil for efficient image loading and caching
-*   **UI Components**: Custom Calendar Grid, Interactive Date Selection
+*   **Image Loading**: Coil
 
 ### High-Level Overview
 
@@ -42,7 +65,8 @@ graph TD
         D <--> E[Repository Implementation]
         E <--> F[Room Database]
         E <--> G[DataStore Preferences]
-        E <--> H[SensorManager / ML Kit]
+        E <--> H[SensorManager / Location Services]
+        E <--> I[ONNX / Camera Analyzer]
     end
 ```
 
@@ -51,7 +75,7 @@ graph TD
 ### Prerequisites
 *   **Android Studio**: Ladybug or newer.
 *   **JDK**: Version 17 (recommended) or 11.
-*   **Device**: Android 8.0 (Oreo) or higher. Physical device recommended for Camera/Sensor testing.
+*   **Device**: Android 10.0 (Q) or higher recommended for full location support.
 
 ### Installation Steps
 1.  **Clone the Repository**:
@@ -69,41 +93,30 @@ graph TD
 ## 📖 User Guide
 
 ### 1. Home Dashboard
-*   View your daily step count, calories burned, and distance.
-*   Start a new workout or view recent activity.
+*   View your daily step count, calories burned, and distance at a glance.
 
-### 2. Exercise Mode
+### 2. Start a Run
+*   Navigate to the **Run** tab.
+*   Grant **Location Permissions** (Precise location is recommended for accurate tracking).
+*   Tap **Start**. The map will center on your location and draw your path as you move.
+*   View real-time metrics like Pace, Distance, and Duration.
+*   **Stop** to save or discard your run.
+
+### 3. AI Exercise Coach
 *   Navigate to the **Exercise** tab.
 *   Select "Push-ups" or "Sit-ups".
-*   **Grant Camera Permission** when prompted.
-*   Place the phone on the ground/stand so your full body is visible.
-*   Perform the exercise; the app counts valid reps automatically.
+*   **Grant Camera Permission** and place your phone to see your full body.
+*   The AI will detect your pose, count reps, and check your form.
 
-### 3. History & Calendar
-*   Navigate to the **History** tab.
-*   Browse months using the arrow buttons.
-*   **Tap any date** on the calendar grid to select it (highlighted with color).
-*   View detailed stats below: steps, calories, distance, and workouts for that day.
-
-### 4. Profile Management
-*   Tap the **Profile** tab to view your information.
-*   Click **"Edit Profile"** to enter Edit Mode.
-*   **Upload Profile Picture**: In Edit Mode, tap the avatar circle to select a photo from your gallery.
-*   Modify your height, weight, age, and daily step goal.
-*   Click **"Save"** to persist changes or **"Cancel"** to discard.
-
-### 5. Settings
-*   From the Profile screen, click the **Gear Icon** (top-right).
-*   Toggle **Dark Mode** (changes apply immediately across the app).
-*   Enable/disable **Notifications**.
-*   Switch between **Metric** and **Imperial** units.
-*   Use **"Reset All Data"** to clear your fitness history (requires confirmation).
+### 4. History
+*   Tap the **History** tab to see your activity log.
+*   Use the calendar to filter by date.
 
 ## ⚠️ Troubleshooting
 
+*   **"Map is blank"**: Ensure you have added the `MAPS_API_KEY` to `local.properties` and enabled the **Maps SDK for Android** in Google Cloud Console.
+*   **"Location not updating"**: Check if "Location" is enabled in your phone's Quick Settings.
 *   **"Camera permission required"**: Go to Android Settings > Apps > Fitness Tracker > Permissions and enable Camera.
-*   **Steps not counting**: ensure "Physical Activity" permission is granted and battery saver is not aggressively killing background services.
-*   **Crash on Launch**: Uninstall the old version and reinstall to ensure database schemas are fresh (or use the "Reset Data" option if accessible).
 
 ## 📜 License
 This project is for educational purposes.
