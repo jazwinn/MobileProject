@@ -329,3 +329,92 @@ Create a native Android fitness tracking application using Jetpack Compose and K
 - Camera processing latency <200ms per frame
 
 This comprehensive specification should provide any AI agent or development team with all necessary context to build the application successfully.
+
+Exercise Machine Recognition & Tutorial Feature - Updated AI-Powered Text Guide Specification
+Feature Overview
+Implement an intelligent exercise machine recognition system that allows users to photograph or import images of gym equipment. The app will use a pre-trained machine learning model to identify the equipment and generate dynamic, personalized text instructions using Google Gemini API for comprehensive usage guidance.
+Text Guide Component - AI-Generated via Google Gemini API:Dynamic Generation Approach:
+When an equipment is successfully recognized, the app will make an API call to Google Gemini to generate comprehensive, contextual text instructions based on:
+
+
+Gemini API Integration Architecture:
+API Request Structure:
+Request Type: POST to Gemini API endpoint
+Model: gemini-2.5-pro
+Input Components:
+1. Equipment identification data (name, category, muscle groups)
+2. User context (fitness level, age, gender, goals, injuries/limitations)
+3. Structured prompt template
+4. Optional: Previous conversation history for follow-up questions
+5. Output format specifications (JSON or structured markdown)Prompt Engineering Strategy:Base Prompt Template:
+System Context:
+You are an expert certified personal trainer and exercise physiologist providing guidance on proper gym equipment usage. Generate a comprehensive, safe, and personalized exercise guide.
+
+Equipment Information:
+- Equipment Name: {equipment_name}
+- Category: {category}
+- Primary Muscles: {muscle_groups}
+- Difficulty Level: {difficulty}
+
+
+Generate a detailed equipment usage guide with the following sections:
+
+1. EQUIPMENT OVERVIEW (2-3 sentences)
+   - What this machine does
+   - Why it's beneficial
+   - Primary and secondary muscles targeted
+
+2. SETUP INSTRUCTIONS (4-6 numbered steps)
+   - Seat/bench positioning
+   - Weight/resistance selection guidelines for {fitness_level}
+   - Safety mechanisms (pins, locks, adjustments)
+   - Body positioning before starting
+
+3. EXECUTION TECHNIQUE (6-8 numbered steps)
+   - Starting position with detailed body alignment
+   - Movement pattern (concentric and eccentric phases)
+   - Range of motion specifics
+   - Tempo recommendations
+   - End position and reset
+
+4. BREATHING PATTERN
+   - When to inhale
+   - When to exhale
+   - Why proper breathing matters for this exercise
+
+5. COMMON MISTAKES (4-6 bullet points)
+   - Specific errors beginners make
+   - Why each mistake is problematic
+   - How to correct each mistake
+
+6. SAFETY TIPS (4-5 bullet points)
+   - Injury prevention guidelines
+   - Warning signs to stop
+   - Spotter requirements (if applicable)
+   - Contraindications for specific conditions
+
+7. RECOMMENDED PROTOCOL
+   - Sets and reps for {fitness_level}
+   - Rest periods between sets
+   - Frequency per week
+   - Progression strategy
+
+8. VARIATIONS & ALTERNATIVES
+   - Easier variation for beginners
+   - Harder variation for advanced users
+   - Alternative exercises targeting same muscles
+   - Equipment-free alternative if applicable
+
+9. PRO TIPS (3-4 advanced insights)
+   - Technique refinements
+   - Mind-muscle connection cues
+   - Programming considerations
+   - Synergistic exercises to pair with
+
+Format requirements:
+- Use clear, concise language appropriate for {fitness_level}
+- Include specific measurements and angles where relevant
+- Prioritize safety throughout
+- Be encouraging and motivating
+- Use gender-neutral language unless user profile specifies preference
+- Avoid medical advice or diagnosis
