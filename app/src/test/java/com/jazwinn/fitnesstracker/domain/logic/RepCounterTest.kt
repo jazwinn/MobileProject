@@ -3,6 +3,7 @@ package com.jazwinn.fitnesstracker.domain.logic
 import com.jazwinn.fitnesstracker.domain.model.ExerciseType
 import com.jazwinn.fitnesstracker.ui.camera.Keypoint
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -184,6 +185,64 @@ class RepCounterTest {
         // Should have processed right side, identified as UP state
         // Initial state is UP, so nothing changes rep-wise, but logic shouldn't reject it
         assertEquals("Go Lower", pushUpCounter.feedback)
+    }
+
+    @Test
+    fun testReset() {
+        val upPose = mockKeypoints(
+            5 to Keypoint(0f, 10f, 0.9f),
+            7 to Keypoint(0f, 0f, 0.9f),
+            9 to Keypoint(0f, -10f, 0.9f)
+        )
+        val downPose = mockKeypoints(
+            5 to Keypoint(0f, 10f, 0.9f),
+            7 to Keypoint(0f, 0f, 0.9f),
+            9 to Keypoint(10f, 10f, 0.9f)
+        )
+        pushUpCounter.processKeypoints(upPose)
+        pushUpCounter.processKeypoints(downPose)
+        pushUpCounter.processKeypoints(upPose)
+        assertEquals(1, pushUpCounter.repCount)
+
+        pushUpCounter.reset()
+        assertEquals(0, pushUpCounter.repCount)
+        assertEquals("Ready", pushUpCounter.feedback)
+    }
+
+    @Test
+    fun testTooFewKeypoints() {
+        val sparse = MutableList(10) { Keypoint(0f, 0f, 0.9f) }
+        pushUpCounter.processKeypoints(sparse)
+        assertEquals("Make sure full body is visible", pushUpCounter.feedback)
+        assertEquals(0, pushUpCounter.repCount)
+    }
+
+    @Test
+    fun testLowConfidenceKeypoints_noSideSelected() {
+        val lowConf = MutableList(17) { Keypoint(0f, 0f, 0.05f) }
+        pushUpCounter.processKeypoints(lowConf)
+        assertEquals("Adjust visible side", pushUpCounter.feedback)
+        assertEquals(0, pushUpCounter.repCount)
+    }
+
+    @Test
+    fun testMultipleReps_accumulatesCount() {
+        val upPose = mockKeypoints(
+            5 to Keypoint(0f, 10f, 0.9f),
+            7 to Keypoint(0f, 0f, 0.9f),
+            9 to Keypoint(0f, -10f, 0.9f)
+        )
+        val downPose = mockKeypoints(
+            5 to Keypoint(0f, 10f, 0.9f),
+            7 to Keypoint(0f, 0f, 0.9f),
+            9 to Keypoint(10f, 10f, 0.9f)
+        )
+        repeat(3) {
+            pushUpCounter.processKeypoints(upPose)
+            pushUpCounter.processKeypoints(downPose)
+            pushUpCounter.processKeypoints(upPose)
+        }
+        assertEquals(3, pushUpCounter.repCount)
     }
 
     private fun mockKeypoints(vararg points: Pair<Int, Keypoint>): List<Keypoint> {
