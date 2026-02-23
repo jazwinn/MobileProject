@@ -1,33 +1,81 @@
+# ─── Android ──────────────────────────────────────────────────────────────────
 *.iml
-.gradle
 /local.properties
+local.properties
+.DS_Store
+/captures
+
+# ─── Gradle ───────────────────────────────────────────────────────────────────
+.gradle
+/build
+**/build/
+gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# ─── Build outputs ────────────────────────────────────────────────────────────
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# ─── Android Studio / IntelliJ IDEA ──────────────────────────────────────────
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
+/.idea/deploymentTargetSelector.xml
+/.idea/androidTestResultsUserPreferences.xml
+.idea/shelf/
+*.ipr
+
+# ─── Native build (CMake / NDK) ───────────────────────────────────────────────
 .externalNativeBuild
 .cxx
-local.properties
+*.so
+*.o
+*.a
 
-# Log files
+# ─── ProGuard ─────────────────────────────────────────────────────────────────
+proguard/
+*.map
+
+# ─── Test / coverage reports ──────────────────────────────────────────────────
+/reports/
+test-results/
+*.exec
+
+# ─── Log & diagnostic files ───────────────────────────────────────────────────
 *.log
 build_output*.txt
 *_log_*.txt
-
-# Python temporary files
-*.py[cod]
-__pycache__/
 diagnose.py
 
-# VS Code
+# ─── Python temporary files ───────────────────────────────────────────────────
+*.py[cod]
+__pycache__/
+
+# ─── VS Code ──────────────────────────────────────────────────────────────────
 .vscode/
 
-# Windows
+# ─── Windows OS ───────────────────────────────────────────────────────────────
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
+
+# ─── macOS ────────────────────────────────────────────────────────────────────
+.AppleDouble
+.LSOverride
+._*
+
+# ─── Security — never commit secrets ──────────────────────────────────────────
+google-services.json
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+secrets.properties
