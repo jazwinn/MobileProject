@@ -2,8 +2,10 @@ package com.jazwinn.fitnesstracker.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jazwinn.fitnesstracker.data.local.dao.BmiHistoryDao
 import com.jazwinn.fitnesstracker.data.local.dao.StepsDao
 import com.jazwinn.fitnesstracker.data.local.dao.WorkoutDao
+import com.jazwinn.fitnesstracker.data.local.entity.BmiHistoryEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -14,7 +16,8 @@ import javax.inject.Inject
 @HiltViewModel
 class StatsViewModel @Inject constructor(
     private val stepsDao: StepsDao,
-    private val workoutDao: WorkoutDao
+    private val workoutDao: WorkoutDao,
+    private val bmiHistoryDao: BmiHistoryDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StatsUiState())
@@ -22,7 +25,7 @@ class StatsViewModel @Inject constructor(
 
     private val calendar = Calendar.getInstance().apply {
         firstDayOfWeek = Calendar.SUNDAY
-        set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY) // Start of current week
+        set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
     }
 
     private val dateFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
@@ -37,17 +40,16 @@ class StatsViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 stepsDao.getAllStepsHistory(),
-                workoutDao.getAllWorkouts()
-            ) { steps, workouts ->
+                workoutDao.getAllWorkouts(),
+                bmiHistoryDao.getAllBmiHistory()
+            ) { steps, workouts, bmiHistory ->
                 val statsMap = mutableMapOf<String, DailyStat>()
                 val isoFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 
-                // Process Steps
                 steps.forEach { step ->
                     statsMap[step.date] = DailyStat(steps = step.stepCount)
                 }
                 
-                // Process Workouts (just counting total reps for simplicity in this view)
                 workouts.forEach { workout ->
                     val date = Date(workout.timestamp)
                     val dateStr = isoFormat.format(date)
@@ -55,24 +57,34 @@ class StatsViewModel @Inject constructor(
                     statsMap[dateStr] = current.copy(workoutReps = current.workoutReps + workout.reps)
                 }
                 
-                statsMap
-            }.collect { fullStatsMap ->
+                Triple(statsMap, bmiHistory, steps)
+            }.collect { (fullStatsMap, bmiHistory, allSteps) ->
                 val weekStats = getWeekStats(fullStatsMap)
                 
-                // Calculate averages/totals for the week
                 val avgSteps = if (weekStats.isNotEmpty()) weekStats.map { it.steps }.average().toInt() else 0
                 val activeDays = weekStats.count { it.steps > 0 || it.workoutReps > 0 }
                 
-                // Normalize for chart (0.0 to 1.0)
                 val maxSteps = weekStats.maxOfOrNull { it.steps }?.takeIf { it > 0 } ?: 10000
                 val chartPoints = weekStats.map { it.steps.toFloat() / maxSteps.toFloat() }
+
+                // BMI Chart Points (Recent 7 entries)
+                val recentBmi = bmiHistory.takeLast(7)
+                val minBmi = recentBmi.minOfOrNull { it.bmiValue } ?: 0f
+                val maxBmi = recentBmi.maxOfOrNull { it.bmiValue } ?: 1f
+                val bmiChartPoints = if (maxBmi > minBmi) {
+                    recentBmi.map { (it.bmiValue - minBmi) / (maxBmi - minBmi) }
+                } else {
+                    recentBmi.map { 0.5f }
+                }
 
                 _uiState.update { 
                     it.copy(
                         weekStats = weekStats,
                         avgSteps = avgSteps,
-                        activeStreak = activeDays, // Simplified strict logic: active days in this week
+                        activeStreak = activeDays,
                         chartPoints = chartPoints,
+                        bmiChartPoints = bmiChartPoints,
+                        bmiHistory = recentBmi,
                         fullStatsMap = fullStatsMap
                     )
                 }
@@ -114,7 +126,7 @@ class StatsViewModel @Inject constructor(
         val currentWeek = Calendar.getInstance().get(Calendar.WEEK_OF_YEAR)
         if (calendar.get(Calendar.WEEK_OF_YEAR) == currentWeek && 
             calendar.get(Calendar.YEAR) == Calendar.getInstance().get(Calendar.YEAR)) {
-            return // Don't go to future
+            return
         }
         calendar.add(Calendar.WEEK_OF_YEAR, 1)
         updateDateRange()
@@ -151,6 +163,8 @@ data class StatsUiState(
     val dateRange: String = "",
     val weekStats: List<DailyStat> = emptyList(),
     val chartPoints: List<Float> = emptyList(),
+    val bmiChartPoints: List<Float> = emptyList(),
+    val bmiHistory: List<BmiHistoryEntity> = emptyList(),
     val avgSteps: Int = 0,
     val activeStreak: Int = 0,
     val fullStatsMap: Map<String, DailyStat> = emptyMap()

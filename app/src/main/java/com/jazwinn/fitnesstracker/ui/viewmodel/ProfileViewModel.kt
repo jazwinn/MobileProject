@@ -2,18 +2,24 @@ package com.jazwinn.fitnesstracker.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jazwinn.fitnesstracker.data.local.dao.BmiHistoryDao
 import com.jazwinn.fitnesstracker.data.local.dao.UserProfileDao
+import com.jazwinn.fitnesstracker.data.local.entity.BmiHistoryEntity
 import com.jazwinn.fitnesstracker.data.local.entity.UserProfileEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val userProfileDao: UserProfileDao
+    private val userProfileDao: UserProfileDao,
+    private val bmiHistoryDao: BmiHistoryDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -87,17 +93,33 @@ class ProfileViewModel @Inject constructor(
     fun saveProfile() {
         viewModelScope.launch {
             val currentState = _uiState.value
+            val h = currentState.height.toFloatOrNull() ?: 170f
+            val w = currentState.weight.toFloatOrNull() ?: 70f
+            
             val profile = UserProfileEntity(
                 id = 0,
                 name = currentState.name,
-                heightCm = currentState.height.toFloatOrNull() ?: 170f,
-                weightKg = currentState.weight.toFloatOrNull() ?: 70f,
+                heightCm = h,
+                weightKg = w,
                 age = currentState.age.toIntOrNull() ?: 25,
                 dailyStepGoal = currentState.stepGoal.toIntOrNull() ?: 10000
             )
             userProfileDao.insertOrUpdateProfile(profile)
+            
+            // Save to BMI History
+            val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            val bmiValue = currentState.bmi.value.toFloatOrNull() ?: 0f
+            if (bmiValue > 0) {
+                val bmiRecord = BmiHistoryEntity(
+                    date = dateStr,
+                    bmiValue = bmiValue,
+                    weightKg = w,
+                    heightCm = h
+                )
+                bmiHistoryDao.insertBmiRecord(bmiRecord)
+            }
+            
             _uiState.update { it.copy(isSaved = true) }
-            // Reset saved flag after a moment? Or handle in UI
         }
     }
     
@@ -129,7 +151,7 @@ class ProfileViewModel @Inject constructor(
         }
         
         return BmiInfo(
-            value = "%.1f".format(bmiValue),
+            value = "%.1f".format(Locale.getDefault(), bmiValue),
             category = category,
             color = colorHex.toLong()
         )

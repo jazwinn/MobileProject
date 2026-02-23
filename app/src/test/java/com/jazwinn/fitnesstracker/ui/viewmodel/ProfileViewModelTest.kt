@@ -1,5 +1,6 @@
 package com.jazwinn.fitnesstracker.ui.viewmodel
 
+import com.jazwinn.fitnesstracker.data.local.dao.BmiHistoryDao
 import com.jazwinn.fitnesstracker.data.local.dao.UserProfileDao
 import com.jazwinn.fitnesstracker.data.local.entity.UserProfileEntity
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import org.mockito.kotlin.whenever
 class ProfileViewModelTest {
 
     private lateinit var userProfileDao: UserProfileDao
+    private lateinit var bmiHistoryDao: BmiHistoryDao
     private lateinit var viewModel: ProfileViewModel
     private val testDispatcher = StandardTestDispatcher()
 
@@ -27,9 +29,10 @@ class ProfileViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         userProfileDao = mock()
+        bmiHistoryDao = mock()
         // Provide initial flow for loadProfile()
         whenever(userProfileDao.getUserProfile()).thenReturn(flowOf(null))
-        viewModel = ProfileViewModel(userProfileDao)
+        viewModel = ProfileViewModel(userProfileDao, bmiHistoryDao)
     }
 
     @After
