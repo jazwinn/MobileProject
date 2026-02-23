@@ -33,7 +33,8 @@ class ProfileViewModel @Inject constructor(
                             height = profile.heightCm.toString(),
                             weight = profile.weightKg.toString(),
                             age = profile.age.toString(),
-                            stepGoal = profile.dailyStepGoal.toString()
+                            stepGoal = profile.dailyStepGoal.toString(),
+                            bmi = calculateBmi(profile.heightCm.toString(), profile.weightKg.toString())
                         )
                     }
                 } else {
@@ -51,13 +52,23 @@ class ProfileViewModel @Inject constructor(
 
     fun updateHeight(newHeight: String) {
         if (newHeight.all { it.isDigit() || it == '.' }) {
-            _uiState.update { it.copy(height = newHeight) }
+            _uiState.update { 
+                val h = newHeight.toFloatOrNull() ?: 0f
+                val error = if (newHeight.isNotEmpty() && h <= 0f) "Must be greater than 0" else null
+                val newState = it.copy(height = newHeight, heightError = error)
+                newState.copy(bmi = calculateBmi(newState.height, newState.weight))
+            }
         }
     }
 
     fun updateWeight(newWeight: String) {
          if (newWeight.all { it.isDigit() || it == '.' }) {
-            _uiState.update { it.copy(weight = newWeight) }
+            _uiState.update { 
+                val w = newWeight.toFloatOrNull() ?: 0f
+                val error = if (newWeight.isNotEmpty() && w <= 0f) "Must be greater than 0" else null
+                val newState = it.copy(weight = newWeight, weightError = error)
+                newState.copy(bmi = calculateBmi(newState.height, newState.weight))
+            }
         }
     }
 
@@ -93,6 +104,36 @@ class ProfileViewModel @Inject constructor(
     fun resetSavedFlag() {
         _uiState.update { it.copy(isSaved = false) }
     }
+    
+    private fun calculateBmi(heightCm: String, weightKg: String): BmiInfo {
+        val h = heightCm.toFloatOrNull() ?: 0f
+        val w = weightKg.toFloatOrNull() ?: 0f
+        
+        if (h <= 0f || w <= 0f) return BmiInfo()
+        
+        val heightMeters = h / 100f
+        val bmiValue = w / (heightMeters * heightMeters)
+        
+        val category = when {
+            bmiValue < 18.5 -> "Underweight"
+            bmiValue < 25.0 -> "Normal"
+            bmiValue < 30.0 -> "Overweight"
+            else -> "Obese"
+        }
+        
+        val colorHex = when {
+            bmiValue < 18.5 -> 0xFF3498DB // Blue
+            bmiValue < 25.0 -> 0xFF2ECC71 // Green
+            bmiValue < 30.0 -> 0xFFF1C40F // Yellow
+            else -> 0xFFE74C3C // Red
+        }
+        
+        return BmiInfo(
+            value = "%.1f".format(bmiValue),
+            category = category,
+            color = colorHex.toLong()
+        )
+    }
 }
 
 data class ProfileUiState(
@@ -101,5 +142,14 @@ data class ProfileUiState(
     val weight: String = "",
     val age: String = "",
     val stepGoal: String = "",
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+    val bmi: BmiInfo = BmiInfo(),
+    val heightError: String? = null,
+    val weightError: String? = null
+)
+
+data class BmiInfo(
+    val value: String = "--",
+    val category: String = "Unknown",
+    val color: Long = 0xFF95A5A6 // Gray
 )

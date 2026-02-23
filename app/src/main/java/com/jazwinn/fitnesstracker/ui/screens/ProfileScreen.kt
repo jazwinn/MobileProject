@@ -1,6 +1,7 @@
 package com.jazwinn.fitnesstracker.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
@@ -80,7 +81,9 @@ fun ProfileScreen(
                     label = { Text("Weight (kg)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
+                    singleLine = true,
+                    isError = uiState.weightError != null,
+                    supportingText = { uiState.weightError?.let { Text(it) } }
                 )
             }
             
@@ -93,7 +96,9 @@ fun ProfileScreen(
                     label = { Text("Height (cm)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
+                    singleLine = true,
+                    isError = uiState.heightError != null,
+                    supportingText = { uiState.heightError?.let { Text(it) } }
                 )
                 
                  OutlinedTextField(
@@ -106,11 +111,65 @@ fun ProfileScreen(
                 )
             }
 
+            // BMI Display Section
+            if (uiState.bmi.value != "--" && uiState.heightError == null && uiState.weightError == null) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = androidx.compose.ui.graphics.Color(uiState.bmi.color).copy(alpha = 0.1f)
+                    ),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "Your BMI",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = uiState.bmi.value,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = androidx.compose.ui.graphics.Color(uiState.bmi.color)
+                            )
+                        }
+                        
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = androidx.compose.ui.graphics.Color(uiState.bmi.color)
+                            ),
+                            shape = CircleShape
+                        ) {
+                            Text(
+                                text = uiState.bmi.category,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.weight(1f))
+
+            val isInputValid = uiState.name.isNotEmpty() && 
+                             uiState.height.isNotEmpty() && uiState.heightError == null &&
+                             uiState.weight.isNotEmpty() && uiState.weightError == null &&
+                             uiState.age.isNotEmpty() && uiState.stepGoal.isNotEmpty()
 
             Button(
                 onClick = { viewModel.saveProfile() },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                enabled = isInputValid,
                 shape = MaterialTheme.shapes.small
             ) {
                 Icon(Icons.Default.Save, contentDescription = null)
