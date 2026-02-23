@@ -6,7 +6,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 
 /**
- * CameraX ImageAnalysis.Analyzer that feeds frames through YOLOv8 pose detection.
+ * CameraX ImageAnalysis.Analyzer that feeds frames through YOLO26 pose detection.
  * 
  * Converts YUV420 camera frames to Bitmap, runs inference via [YoloPoseDetector],
  * and delivers results through the callback. Processes every 2nd frame for performance.
