@@ -2,6 +2,9 @@
 
 A modern, offline-first Android application for tracking daily steps, logging GPS runs, and analyzing exercise form using on-device Machine Learning.
 
+## 🎥 Demo
+[![Watch the demo](https://img.youtube.com/vi/ODXwirGofr4/0.jpg)](https://youtu.be/ODXwirGofr4)
+
 ## 🚀 Features
 
 *   **🏃 GPS Run Tracking**: Real-time run tracking with Google Maps integration. Visualizes your running path, calculates distance, pace, and speed, and displays momentum analytics.
