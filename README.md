@@ -34,9 +34,6 @@ To use the Map and Location features, you must configure a Google Cloud API Key.
 > [!NOTE]
 > To use the **Machine Recognition** feature, you need a valid [Google Gemini API Key](https://aistudio.google.com/app/apikey).
 
-> [!IMPORTANT]  
-> Without this key, the Map view in the Running capability will not function correctly.
-
 ## 🏗️ System Architecture
 
 The application follows strictly typed **Clean Architecture** principles with **MVVM (Model-View-ViewModel)**.
